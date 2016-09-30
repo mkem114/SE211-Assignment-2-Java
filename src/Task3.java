@@ -172,7 +172,7 @@ public class Task3 {
             if (printArcs) {
                 _str.append("comes from nodes: \n");
                 for (Node n : _from) {
-                    _str.append(n.name() + "\n")
+                    _str.append(n.name() + "\n");
                 }
                 _str.append("\ngoes to nodes: \n");
                 for (Node n : _to) {
