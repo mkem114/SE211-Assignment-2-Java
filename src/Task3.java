@@ -2,6 +2,15 @@
  * Created by mkem114/6273632 on 29/09/16.
  */
 
+//TODO Check that cycle at the bottom doesn't break
+//Cycle at top
+//Cycle in midle
+//One cycle
+//Triangle
+//Upside down triangle
+//Hour glass
+
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
@@ -29,6 +38,7 @@ public class Task3 {
 
     /**
      * Starts the program after being called from command line
+     *
      * @param args Ignored command line arguments
      * @throws Exception All exceptions are thrown for debugging as this is not intended for production
      */
@@ -39,12 +49,14 @@ public class Task3 {
 
     /**
      * The main function in which initialisation and general program control flow occurs
+     *
      * @throws Exception All exceptions are thrown for debugging as this is not intended for production
      */
     private Task3() throws Exception {
         // Initialises the input and output streams respectively
         _in = new BufferedReader(new InputStreamReader(System.in));
         _out = new BufferedWriter(new OutputStreamWriter(System.out));
+        // Initialises the data structure
 
         // Loads the graph
         load();
@@ -61,6 +73,7 @@ public class Task3 {
 
     /**
      * Loads the graph from stdin
+     *
      * @throws Exception All exceptions are thrown for debugging as this is not intended for production
      */
     private void load() throws Exception {
@@ -74,6 +87,7 @@ public class Task3 {
 
     /**
      * Prints the z-sort solution to stout
+     *
      * @throws Exception All exceptions are thrown for debugging as this is not intended for production
      */
     private void print() throws Exception {
@@ -85,25 +99,25 @@ public class Task3 {
      * Represents something to compare Nodes
      * </p>
      * <p>
-     * Only dependency is Node class
+     * Only dependency is NodeSet class
      * </p>
      */
-    private class NodeComparer implements Comparator<Node> {
+    private class NodeComparer implements Comparator<NodeSet> {
         /**
-         * Same as o1.compareTo(o2) thus see Node.compareTo(Node n)
+         * Same as o1.compareTo(o2) thus see NodeSet.compareTo(NodeSet n)
          *
-         * @param o1 First Node
-         * @param o2 Second Node
+         * @param o1 First NodeSet
+         * @param o2 Second NodeSet
          * @return Order of nodes
          */
         @Override
-        public int compare(Node o1, Node o2) {
+        public int compare(NodeSet o1, NodeSet o2) {
             return o1.compareTo(o2);
         }
     }
 
     /**
-     * <h1>Node</h1>
+     * <h1>NodeSet</h1>
      * <p>
      * Represents a node in a graph (e.g DAG, binary tree, cycle)
      * </p>
@@ -114,33 +128,47 @@ public class Task3 {
      * No dependencies other than built in java libraries
      * </p>
      */
-    class Node implements Comparable<Node> {
+    public class NodeSet implements Comparable<NodeSet> {
         private int _name;
         private int _strata;
-        private LinkedList<Node> _from; // List of nodes the node comes from
-        private LinkedList<Node> _to; // Lists of nodes the node goes to
+        private boolean _base; // Whether anything connects to this node
+        private LinkedList<NodeSet> _to; // List of nodes the node goes to
+        private LinkedList<NodeSet> _collapsed; // List of nodes collapsed into this one
 
         /**
-         * Creates a new node with the given name and assumes 0th strata to begin with
+         * Creates a new node with a name and assumes the 0th strata to begin with
          *
-         * @param name Node's name
+         * @param name   NodeSet's name
+         * @param strata NodeSet's strata
          */
-        Node(int name) {
-            this(name, 0);
+        public NodeSet(int name) {
+            _name = name;
+            _strata = 0;
+            _base = true;
+            // Initialises the to and collapsed lists
+            _to = new LinkedList<>();
+            _collapsed = new LinkedList<>();
         }
 
         /**
-         * Creates a new node with a name and strata
-         *
-         * @param name   Node's name
-         * @param strata Node's strata
+         * Determines whether or not the NodeSet consists of a single element
+         * @return Consists of one element
          */
-        Node(int name, int strata) {
-            _name = name;
-            _strata = strata;
-            // Initialises the to and from lists
-            _from = new LinkedList<>();
-            _to = new LinkedList<>();
+        public boolean isSingular() {
+            // If there is no collapsed NodeSet then the set can only have one element
+            return _collapsed.size() == 0;
+        }
+
+        /**
+         * Collapses a list of node sets into one
+         *
+         */
+        public void collapse(NodeSet n) {
+            for (NodeSet n2 : n._to) {
+                if ((n2 != this) && !(_to.contains(n2))) {
+                    _to.add(n2);
+                }
+            }
         }
 
         /**
@@ -152,7 +180,7 @@ public class Task3 {
          * @param n Specified node to compare
          * @return Order of nodes
          */
-        public int compareTo(Node n) {
+        public int compareTo(NodeSet n) {
             // Checks the strata first
             if (n.strataOn() > _strata) {
                 return -1;
@@ -167,7 +195,7 @@ public class Task3 {
         /**
          * Determines the name of the node
          *
-         * @return Node's name
+         * @return NodeSet's name
          */
         public int name() {
             return _name;
@@ -178,9 +206,18 @@ public class Task3 {
          *
          * @param to Pointed node
          */
-        public void goesTo(Node to) {
+        public void goesTo(NodeSet to) {
             // Adds the node to the to list
             _to.add(to);
+        }
+
+        /**
+         * Informs the NodeSet that it is no longer pointing to a node
+         * @param to
+         */
+        public void cutTo(NodeSet to) {
+            // Removes the node from the to list
+            _to.remove(to);
         }
 
         /**
@@ -188,9 +225,18 @@ public class Task3 {
          *
          * @param from Pointing node
          */
-        public void comesFrom(Node from) {
+        public void comesFrom(NodeSet from) {
             // Adds the node to the from list
             _from.add(from);
+        }
+
+        /**
+         * Informs the NodeSet that it is no longer pointed to from a nod
+         * @param from
+         */
+        public void cutFrom(NodeSet from) {
+            // Removes the node from the from list
+            _from.remove(from);
         }
 
         /**
@@ -230,11 +276,11 @@ public class Task3 {
             // Prints the arcs
             if (printArcs) {
                 _str.append("comes from nodes: \n");
-                for (Node n : _from) {
+                for (NodeSet n : _from) {
                     _str.append(n.name() + "\n");
                 }
                 _str.append("\ngoes to nodes: \n");
-                for (Node n : _to) {
+                for (NodeSet n : _to) {
                     _str.append(n.name() + "\n");
                 }
             }

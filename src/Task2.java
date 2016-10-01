@@ -94,7 +94,7 @@ public class Task2 {
 
         //prints out all the nodes
         /*_out.write("\n");
-        for (Node n : _nodeList) {
+        for (NodeSet n : _nodeList) {
             _out.write(n.toString() + "\n");
         }
         _out.write("\n");*/
