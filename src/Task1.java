@@ -24,9 +24,9 @@ public class Task1 {
     // strata
     private LinkedList<LinkedList<Node>> _strata;
 
-    /*public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
         new Task1();
-    }*/
+    }
 
     private Task1() throws Exception {
         // Initialises the input and output streams respectively

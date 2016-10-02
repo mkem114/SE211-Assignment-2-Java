@@ -20,7 +20,7 @@ import java.io.OutputStreamWriter;
 import java.util.*;
 
 /**
- * <h1>Task3</h1>
+ * <h1>Task2</h1>
  * The ultimate solution to Gerald's infamous secondary auto-marker assignment for SE211 S2 2016
  * <p>
  * This class takes a graph from stdin, z-sorts it and then prints the result to stdout. See assignment specs for
@@ -40,6 +40,8 @@ public class Task3 {
     private HashMap<String, NodeSet> _nodeSets;
     // is a dag
     private boolean _isDAG;
+    // strata
+    private ArrayList<ArrayList<NodeSet>> _strata;
 
     /**
      * Prints out debugging messages only when debugging is on
@@ -73,6 +75,7 @@ public class Task3 {
         // Initialises the data structure
         _isDAG = true;
         _nodeSets = new HashMap<>();
+        _strata = new ArrayList<>();
 
         // Loads the graph
         load();
@@ -114,6 +117,8 @@ public class Task3 {
                 // Creates the arc between the two node
                 fromNode.goesTo(toNode);
                 toNode.comesFrom(fromNode);
+            } else {
+                _isDAG = false;
             }
         }
     }
@@ -126,9 +131,9 @@ public class Task3 {
         for (int i = 0; i < nodeList.size(); i++) { // For every node
             nodeList.get(i).collapseCycles(new HashSet<>(), new ArrayList<>()); // Start collapsing strongly connected components
         }
-        nodeList = new ArrayList<>(_nodeSets.values()); // Retrieves copy of all nodes
-        for (int i = 0; i < nodeList.size(); i++) { // For every node
-            nodeList.get(i).start(); // Starts z-sorting
+
+        for (NodeSet n : _nodeSets.values()) {
+            n.start();
         }
     }
 
@@ -152,24 +157,22 @@ public class Task3 {
 
         ArrayList<NodeSet> nodeList = new ArrayList<>(_nodeSets.values());
         nodeList.sort(new  NodeSet());
-        _out.write(nodeList.get(nodeList.size()-1)._strata+1 + "\n");
-        LinkedList<NodeSet> strata = new LinkedList<>();
-        int current = 0;
-        for (NodeSet nodeSet : nodeList) {
-            if (current == nodeSet._strata) {
-                strata.add(nodeSet);
-            } else {
-                _out.write(strata.size()+"\n");
-                for (NodeSet n : strata) {
-                    _out.write(n.names() + "\n");
-                }
-                strata.clear();
-                strata.add(nodeSet);
+
+        int _strataOn = 0;
+        _strata.add(new ArrayList<>());
+        for (NodeSet n : nodeList) {
+            if (n._strata > _strataOn) {
+                _strataOn = n._strata;
+                _strata.add(new ArrayList<>());
             }
+            _strata.get(_strata.size()-1).add(n);
         }
-        _out.write(strata.size()+"\n");
-        for (NodeSet n : strata) {
-            _out.write(n.names() + "\n");
+        _out.write(_strata.size() + "\n");
+        for (ArrayList<NodeSet> list : _strata) {
+            _out.write(list.size() + "\n");
+            for (NodeSet n : list) {
+                _out.write(n.names() + "\n");
+            }
         }
     }
 
@@ -291,10 +294,8 @@ public class Task3 {
         }
 
         void start() {
-            if (_from.size() == 0) {
-                for (NodeSet n : _to) {
-                    n.upStrata(0);
-                }
+            for (NodeSet n : _to) {
+                n.upStrata(0);
             }
         }
 
@@ -367,7 +368,7 @@ public class Task3 {
             // String compiler
             StringBuilder _str = new StringBuilder();
             // Insert the name and strata of the node
-            _str.append("\n" + _name + " is on: " + " and referenced by: " + hashCode() + "\n");
+            _str.append("\n" + _name + " is on: " + _strata + " and referenced by: " + hashCode() + "\n");
 
             // Prints the arcs
             if (printArcs) {
