@@ -4,11 +4,13 @@
 
 //TODO Check that cycle at the bottom doesn't break
 //Cycle at top
-//Cycle in midle
+//Cycle in middle
 //One cycle
 //Triangle
 //Upside down triangle
 //Hour glass
+//Turn off debugging before submission
+// Have to collapse to the right such that we don't get weird effects
 
 
 import java.io.BufferedReader;
@@ -16,6 +18,7 @@ import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedList;
 
 /**
@@ -30,11 +33,13 @@ public class Task3 {
     /**
      * Debug-mode printing switch with "true" being on
      */
-    public static final boolean _debug = true;
+    public static final boolean _debug = false;
     // stdin
     private BufferedReader _in;
     // stdout
     private BufferedWriter _out;
+    // nodes
+    private HashMap<Integer, NodeSet> _nodeSets;
 
     /**
      * Starts the program after being called from command line
@@ -77,6 +82,30 @@ public class Task3 {
      * @throws Exception All exceptions are thrown for debugging as this is not intended for production
      */
     private void load() throws Exception {
+        int numArcs = Integer.parseInt(_in.readLine()); // Determines how many arcs there are to read in
+        for (int arc = 0; arc++ < numArcs; ) { // Reads every arc
+            String rawArc = _in.readLine();
+            String[] splitArc = rawArc.split(" ");
+            int fromNodeName = Integer.parseInt(splitArc[0]); // from node
+            int toNodeName = Integer.parseInt(splitArc[1]); // to node
+
+            if (toNodeName != fromNodeName) { // Stops reflexive arcs
+                NodeSet fromNode = _nodeSets.get(fromNodeName);
+                NodeSet toNode = _nodeSets.get(toNodeName);
+                if (fromNode == null) { // if from node doesn't exist yet then creates it
+                    fromNode = new NodeSet(fromNodeName);
+                    _nodeSets.put(fromNodeName, fromNode);
+                }
+                if (toNode == null) { // if to node doesn't exist yet then creates it
+                    toNode = new NodeSet(toNodeName);
+                    _nodeSets.put(toNodeName, toNode);
+                }
+
+                // Creates the arc between the two node
+                fromNode.goesTo(toNode);
+                toNode.comesFrom(fromNode);
+            }
+        }
     }
 
     /**
@@ -131,9 +160,9 @@ public class Task3 {
     public class NodeSet implements Comparable<NodeSet> {
         private int _name;
         private int _strata;
-        private boolean _base; // Whether anything connects to this node
         private LinkedList<NodeSet> _to; // List of nodes the node goes to
-        private LinkedList<NodeSet> _collapsed; // List of nodes collapsed into this one
+        private LinkedList<NodeSet> _from; // List of nodes the node comes from
+        private LinkedList<Integer> _collapsed; // List of nodes collapsed into this one
 
         /**
          * Creates a new node with a name and assumes the 0th strata to begin with
@@ -144,19 +173,9 @@ public class Task3 {
         public NodeSet(int name) {
             _name = name;
             _strata = 0;
-            _base = true;
             // Initialises the to and collapsed lists
             _to = new LinkedList<>();
             _collapsed = new LinkedList<>();
-        }
-
-        /**
-         * Determines whether or not the NodeSet consists of a single element
-         * @return Consists of one element
-         */
-        public boolean isSingular() {
-            // If there is no collapsed NodeSet then the set can only have one element
-            return _collapsed.size() == 0;
         }
 
         /**
@@ -164,41 +183,13 @@ public class Task3 {
          *
          */
         public void collapse(NodeSet n) {
-            for (NodeSet n2 : n._to) {
-                if ((n2 != this) && !(_to.contains(n2))) {
-                    _to.add(n2);
+            if (n != this) {
+                for (NodeSet nextTo : n._to) {
+                    if (nextTo != this) {
+                        _to.add(nextTo);
+                    }
                 }
             }
-        }
-
-        /**
-         * Evaluates which node comes first primarily by the strata of each and secondly by their names
-         * zero means that no difference is found
-         * negative means that the specified node is greater
-         * positive means that the specified nod is lesser
-         *
-         * @param n Specified node to compare
-         * @return Order of nodes
-         */
-        public int compareTo(NodeSet n) {
-            // Checks the strata first
-            if (n.strataOn() > _strata) {
-                return -1;
-            } else if (n.strataOn() < _strata) {
-                return 1;
-            } else {
-                // Checks the name secondly
-                return Integer.compare(_name, n.name());
-            }
-        }
-
-        /**
-         * Determines the name of the node
-         *
-         * @return NodeSet's name
-         */
-        public int name() {
-            return _name;
         }
 
         /**
@@ -212,6 +203,16 @@ public class Task3 {
         }
 
         /**
+         * Informs the node that it is pointing to another (specified) node
+         *
+         * @param from Pointed node
+         */
+        public void comesFrom(NodeSet from) {
+            // Adds the node to the to list
+            _from.add(from);
+        }
+
+        /**
          * Informs the NodeSet that it is no longer pointing to a node
          * @param to
          */
@@ -221,41 +222,12 @@ public class Task3 {
         }
 
         /**
-         * Informs the node that it is pointed to by another (specified) node
-         *
-         * @param from Pointing node
-         */
-        public void comesFrom(NodeSet from) {
-            // Adds the node to the from list
-            _from.add(from);
-        }
-
-        /**
-         * Informs the NodeSet that it is no longer pointed to from a nod
-         * @param from
-         */
-        public void cutFrom(NodeSet from) {
-            // Removes the node from the from list
-            _from.remove(from);
-        }
-
-        /**
          * Evaluates what strata number the node is on
          *
          * @return Nth strata
          */
         public int strataOn() {
             return _strata;
-        }
-
-        /**
-         * Evaluates whether on not the node is on the 0th strata to its knowledge
-         *
-         * @return Whether or not its on strata 0
-         */
-        public boolean base() {
-            // This node is on 0th strata iff it's not pointed to from another node
-            return _from.size() == 0;
         }
 
         /**
@@ -287,6 +259,27 @@ public class Task3 {
 
             // Returns the print
             return _str.toString();
+        }
+
+        /**
+         * Evaluates which node comes first primarily by the strata of each and secondly by their names
+         * zero means that no difference is found
+         * negative means that the specified node is greater
+         * positive means that the specified nod is lesser
+         *
+         * @param n Specified node to compare
+         * @return Order of nodes
+         */
+        public int compareTo(NodeSet n) {
+            // Checks the strata first
+            if (n.strataOn() > _strata) {
+                return -1;
+            } else if (n.strataOn() < _strata) {
+                return 1;
+            } else {
+                // Checks the name secondly
+                return Integer.compare(_name, n.name());
+            }
         }
     }
 }
