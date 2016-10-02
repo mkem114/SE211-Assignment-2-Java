@@ -37,7 +37,7 @@ public class Task3 {
     // stdout
     private BufferedWriter _out;
     // nodes
-    private HashMap<Integer, NodeSet> _nodeSets;
+    private HashMap<String, NodeSet> _nodeSets;
     // is a dag
     private boolean _isDAG;
     // strata
@@ -70,8 +70,8 @@ public class Task3 {
         _in = new BufferedReader(new InputStreamReader(System.in));
         _out = new BufferedWriter(new OutputStreamWriter(System.out));
         // Initialises the data structure
-        _nodeSets = new HashMap<>();
         _isDAG = true;
+        _nodeSets = new HashMap<>();
         _strata = new LinkedList<>();
 
         // Loads the graph
@@ -95,11 +95,9 @@ public class Task3 {
     private void load() throws Exception {
         int numArcs = Integer.parseInt(_in.readLine()); // Determines how many arcs there are to read in
         for (int arc = 0; arc++ < numArcs; ) { // Reads every arc
-            String rawArc = _in.readLine();
-            String[] splitArc = rawArc.split(" ");
-
-            int fromNodeName = Integer.parseInt(splitArc[0]); // from node
-            int toNodeName = Integer.parseInt(splitArc[1]); // to node
+            StringTokenizer line = new StringTokenizer(_in.readLine());
+            String fromNodeName = line.nextToken(); // from node
+            String toNodeName = line.nextToken(); // to node
 
             NodeSet fromNode = _nodeSets.get(fromNodeName);
             NodeSet toNode = _nodeSets.get(toNodeName);
@@ -124,15 +122,6 @@ public class Task3 {
      * Solves the loaded graph
      */
     private void solve() {
-        for (NodeSet n : _nodeSets.values()) {
-            n.collapseCycles(new HashMap<>(), new ArrayList<>());
-        }
-
-        for (NodeSet n : _nodeSets.values()) {
-            if (n.notCollapsed()) {
-                n.solve();
-            }
-        }
     }
 
     /**
@@ -145,61 +134,6 @@ public class Task3 {
             for (NodeSet n : _nodeSets.values()) {
                 _out.write(n.toString());
             }
-        }
-
-        if (_isDAG) {
-            _out.write("DAG\n");
-        } else {
-            _out.write("nonDAG\n");
-        }
-
-        LinkedList<NodeSet> temp = new LinkedList<>(_nodeSets.values());
-        temp.sort(new NodeComparer());
-
-        int _strataOn = 0;
-        _strata.add(new LinkedList<>());
-        for (NodeSet n : temp) {
-            if (n.strataOn() > _strataOn) {
-                _strataOn = n.strataOn();
-                _strata.add(new LinkedList<>());
-            }
-            _strata.get(_strata.size()-1).add(n);
-        }
-
-        for (LinkedList<NodeSet> list : _strata) {
-            _out.write(list.size() + "\n");
-            for (NodeSet n : list) {
-                _out.write(n.printNames() + "\n");
-            }
-        }
-    }
-
-    /**
-     * <h1>NodeComparer</h1>
-     * <p>
-     * Represents something to compare Nodes
-     * </p>
-     * <p>
-     * Only dependency is NodeSet class
-     * </p>
-     */
-    private class NodeComparer implements Comparator<NodeSet> {
-        /**
-         * Same as o1.compareTo(o2) thus see NodeSet.compareTo(NodeSet n)
-         *
-         * @param o1 First NodeSet
-         * @param o2 Second NodeSet
-         * @return Order of nodes
-         */
-        @Override
-        public int compare(NodeSet o1, NodeSet o2) {
-            return o1.compareTo(o2);
-        }
-    }
-
-    private class IntegerComparator implements Comparator<Integer> {
-        public int compare(Integer i1, Integer i2) {
-            return i1.compareTo(i2);
         }
     }
 
@@ -215,27 +149,23 @@ public class Task3 {
      * No dependencies other than built in java libraries
      * </p>
      */
-    class NodeSet implements Comparable<NodeSet> {
-        private int _name;
-        private int _strata;
-        private NodeSet _collapsed;
+    class NodeSet {
+        private String _name;
         private HashSet<NodeSet> _to; // List of nodes the node goes to
-        private ArrayList<NodeSet> _from; // List of nodes the node comes from
-        private ArrayList<Integer> _container; // List of nodes collapsed into this one
+        private HashSet<NodeSet> _from; // List of nodes the node comes from
+        private TreeSet<String> _container; // List of nodes collapsed into this one
 
         /**
          * Creates a new node with a name and assumes the 0th strata to begin with
          *
          * @param name   NodeSet's name
          */
-        NodeSet(int name) {
+        NodeSet(String name) {
             _name = name;
-            _strata = 0;
-            _collapsed = null;
-            // Initialises the to, from and collapsed lists
+            // Initialises the to, from and container lists
             _to = new HashSet<>();
-            _from = new ArrayList<>();
-            _container = new ArrayList<>();
+            _from = new HashSet<>();
+            _container = new TreeSet<>();
         }
 
         /**
@@ -243,86 +173,36 @@ public class Task3 {
          *
          */
         void collapse(NodeSet n) {
-            if (n != this) {
-                for (NodeSet nextTo : n._to) {
-                    if (nextTo != this) {
-                        _to.add(nextTo);
-                    }
-                }
-
-                for (NodeSet nextFrom : n._from) {
-                    nextFrom.cutTo(n);
-                }
-
-                _container.add(n._name);
-                _container.addAll(n._container);
-
-                n._collapsed = this;
-                _isDAG = false;
+            _to.addAll(n._to);
+            _from.addAll(n._from);
+            _container.add(n._name);
+            _container.addAll(n._container);
+            for (NodeSet newTo : n._to) {
+                newTo.cutFrom(n);
+                newTo.comesFrom(this);
             }
+            for (NodeSet newFrom : n._from) {
+                newFrom.cutTo(n);
+                newFrom.goesTo(this);
+            }
+            _nodeSets.remove(n._name);
+            n._to.clear();
+            n._from.clear();
+            n._container.clear();
+            _to.remove(this);
+            _from.remove(this);
+            _container.remove(this._name);
         }
 
-        String printNames() {
-            StringBuilder sb = new StringBuilder();
-            _container.add(_name);
-            ArrayList<Integer> temp = new ArrayList<>(new HashSet<>((ArrayList<Integer>)_container.clone()));
-            temp.sort(new IntegerComparator());
-            for (Integer component : temp) {
-                sb.append(component+" ");
-            }
-            return sb.toString();
-        }
+        void collapseCycles(HashSet<String> _seen, ArrayList<NodeSet> _order) {
+            if (_seen.contains(_name)) {
 
-        void collapseCycles(HashMap<Integer, Void> _seen, ArrayList<NodeSet> _order) {
-            if (notCollapsed()) {
-                if (_seen.containsKey(this._name)) {
-                    boolean start = false;
-                    for (NodeSet n : _order) {
-                        if (n == this) {
-                            start = true;
-                        } else if (start) {
-                            collapse(n);
-                        }
-                    }
-                } else {
-                    _seen.put(this._name, null);
-                    _order.add(this);
-                    ArrayList<NodeSet> to = new ArrayList<>(_to);
-                    for (int i = 0; i < to.size(); i++) {
-                        NodeSet nextSet = to.get(i);
-                        nextSet.collapseCycles((HashMap<Integer, Void>)_seen.clone(), (ArrayList<NodeSet>)_order.clone());
-                    }
-                }
             } else {
-
-            }
-        }
-
-        /**
-         *
-         */
-        void solve() {
-            for (NodeSet n : _to) {
-                n.upStrata(_strata);
-            }
-        }
-
-        void upStrata(int strata) {
-            if (_strata < ++strata) {
-                _strata = strata;
-                HashSet<NodeSet> to = new HashSet<>(_to);
-                for (NodeSet n : to) {
-                    n.upStrata(_strata);
+                ArrayList<NodeSet> nextNodeSet = new ArrayList<>(_to);
+                for (int i = 0; i++ < _to.size();) {
+                    nextNodeSet.get(i).collapseCycles((HashSet<String>) _seen.clone(), (ArrayList<NodeSet>) _order.clone());
                 }
             }
-        }
-
-        /**
-         *
-         * @return
-         */
-        boolean notCollapsed() {
-            return _collapsed == null;
         }
 
         /**
@@ -354,13 +234,8 @@ public class Task3 {
             _to.remove(to);
         }
 
-        /**
-         * Evaluates what strata number the node is on
-         *
-         * @return Nth strata
-         */
-        int strataOn() {
-            return _strata;
+        void cutFrom(NodeSet from) {
+            _from.remove(from);
         }
 
         /**
@@ -397,27 +272,6 @@ public class Task3 {
 
             // Returns the print
             return _str.toString();
-        }
-
-        /**
-         * Evaluates which node comes first primarily by the strata of each and secondly by their names
-         * zero means that no difference is found
-         * negative means that the specified node is greater
-         * positive means that the specified nod is lesser
-         *
-         * @param n Specified node to compare
-         * @return Order of nodes
-         */
-        public int compareTo(NodeSet n) {
-            // Checks the strata first
-            if (n.strataOn() > _strata) {
-                return -1;
-            } else if (n.strataOn() < _strata) {
-                return 1;
-            } else {
-                // Checks the name secondly
-                return printNames().compareTo(n.printNames());
-            }
         }
     }
 }
