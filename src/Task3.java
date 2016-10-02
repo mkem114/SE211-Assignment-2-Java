@@ -20,7 +20,7 @@ import java.io.OutputStreamWriter;
 import java.util.*;
 
 /**
- * <h1>Task2</h1>
+ * <h1>Task3</h1>
  * The ultimate solution to Gerald's infamous secondary auto-marker assignment for SE211 S2 2016
  * <p>
  * This class takes a graph from stdin, z-sorts it and then prints the result to stdout. See assignment specs for
@@ -189,6 +189,7 @@ public class Task3 {
      * </p>
      */
     private class NodeSet implements Comparator<NodeSet> {
+        private String _names = null;
         private String _name;
         private int _strata;
         private NodeSet _collapsedTo;
@@ -202,7 +203,9 @@ public class Task3 {
             } else if (ns2._strata < ns1._strata) {
                 return 1;
             } else {
-                return ns1.names().compareTo(ns2.names());
+                StringTokenizer st1 = new StringTokenizer(ns1.names());
+                StringTokenizer st2 = new StringTokenizer(ns2.names());
+                return  Integer.compare(Integer.parseInt(st1.nextToken()), Integer.parseInt(st2.nextToken()));
             }
         }
 
@@ -309,13 +312,24 @@ public class Task3 {
         }
 
         String names() {
-            StringBuilder names = new StringBuilder();
-            TreeSet<String> namesList= new TreeSet<>((TreeSet<String>)_container.clone());
-            namesList.add(_name);
-            for (String name : namesList) {
-                names.append(name + " ");
+            if (_names == null) {
+                StringBuilder names = new StringBuilder();
+                ArrayList<String> namesListString= new ArrayList<>((TreeSet<String>)_container.clone());
+                namesListString.add(_name);
+                int[] namesList = new int[namesListString.size()];
+                for (int i = 0; i < namesListString.size(); i++) {
+                    namesList[i] = Integer.parseInt(namesListString.get(i));
+                }
+                Arrays.sort(namesList);
+
+
+                for (Integer name : namesList) {
+                    names.append(name + " ");
+                }
+                _names = names.toString();
             }
-            return names.toString();
+
+            return _names;
         }
 
         /**

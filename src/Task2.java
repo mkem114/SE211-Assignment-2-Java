@@ -119,6 +119,8 @@ public class Task2 {
                 toNode.comesFrom(fromNode);
             } else {
                 _isDAG = false;
+                System.out.println("nonDAG\n");
+                System.exit(0);
             }
         }
     }
@@ -152,8 +154,7 @@ public class Task2 {
         if (_isDAG) {
             _out.write("DAG\n");
         } else {
-            System.out.println("nonDAG\n");
-            System.exit(0);
+            _out.write("nonDAG\n");
         }
 
         ArrayList<NodeSet> nodeList = new ArrayList<>(_nodeSets.values());
@@ -190,6 +191,7 @@ public class Task2 {
      * </p>
      */
     private class NodeSet implements Comparator<NodeSet> {
+        private String _names = null;
         private String _name;
         private int _strata;
         private NodeSet _collapsedTo;
@@ -203,7 +205,9 @@ public class Task2 {
             } else if (ns2._strata < ns1._strata) {
                 return 1;
             } else {
-                return ns1.names().compareTo(ns2.names());
+                StringTokenizer st1 = new StringTokenizer(ns1.names());
+                StringTokenizer st2 = new StringTokenizer(ns2.names());
+                return  Integer.compare(Integer.parseInt(st1.nextToken()), Integer.parseInt(st2.nextToken()));
             }
         }
 
@@ -312,13 +316,24 @@ public class Task2 {
         }
 
         String names() {
-            StringBuilder names = new StringBuilder();
-            TreeSet<String> namesList= new TreeSet<>((TreeSet<String>)_container.clone());
-            namesList.add(_name);
-            for (String name : namesList) {
-                names.append(name + " ");
+            if (_names == null) {
+                StringBuilder names = new StringBuilder();
+                ArrayList<String> namesListString= new ArrayList<>((TreeSet<String>)_container.clone());
+                namesListString.add(_name);
+                int[] namesList = new int[namesListString.size()];
+                for (int i = 0; i < namesListString.size(); i++) {
+                    namesList[i] = Integer.parseInt(namesListString.get(i));
+                }
+                Arrays.sort(namesList);
+
+
+                for (Integer name : namesList) {
+                    names.append(name + " ");
+                }
+                _names = names.toString();
             }
-            return names.toString();
+
+            return _names;
         }
 
         /**
