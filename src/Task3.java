@@ -1,4 +1,4 @@
-/**
+/*
  * Created by mkem114/6273632 on 29/09/16.
  */
 
@@ -31,7 +31,7 @@ public class Task3 {
     /**
      * Debug-mode printing switch with "true" being on
      */
-    public static final boolean _debug = true;
+    private static final boolean _debug = false;
     // stdin
     private BufferedReader _in;
     // stdout
@@ -40,9 +40,11 @@ public class Task3 {
     private HashMap<String, NodeSet> _nodeSets;
     // is a dag
     private boolean _isDAG;
-    // strata
-    private LinkedList<LinkedList<NodeSet>> _strata;
 
+    /**
+     * Prints out debugging messages only when debugging is on
+     * @param string Debug message
+     */
     public static void debug(String string) {
         if (_debug) {
             System.out.println(string);
@@ -53,8 +55,7 @@ public class Task3 {
      * Starts the program after being called from command line
      *
      * @param args Ignored command line arguments
-     * @throws Exception All exceptions are thrown for debugging as this is not intended for production
-     */
+     * @throws Exception All exceptions are thrown for debugging as this is not intended for production*/
     public static void main(String[] args) throws Exception {
         // Creates new graph solver
         new Task3();
@@ -72,7 +73,6 @@ public class Task3 {
         // Initialises the data structure
         _isDAG = true;
         _nodeSets = new HashMap<>();
-        _strata = new LinkedList<>();
 
         // Loads the graph
         load();
@@ -110,7 +110,7 @@ public class Task3 {
                 _nodeSets.put(toNodeName, toNode);
             }
 
-            if (toNodeName != fromNodeName) { // Stops reflexive arcs
+            if (!toNodeName.equals(fromNodeName)) { // Stops reflexive arcs
                 // Creates the arc between the two node
                 fromNode.goesTo(toNode);
                 toNode.comesFrom(fromNode);
@@ -122,10 +122,18 @@ public class Task3 {
      * Solves the loaded graph
      */
     private void solve() {
+        ArrayList<NodeSet> nodeList = new ArrayList<>(_nodeSets.values()); // Retrieves copy of all nodes
+        for (int i = 0; i < nodeList.size(); i++) { // For every node
+            nodeList.get(i).collapseCycles(new HashSet<>(), new ArrayList<>()); // Start collapsing strongly connected components
+        }
+        nodeList = new ArrayList<>(_nodeSets.values()); // Retrieves copy of all nodes
+        for (int i = 0; i < nodeList.size(); i++) { // For every node
+            nodeList.get(i).start(); // Starts z-sorting
+        }
     }
 
     /**
-     * Prints the z-sort solution to stout
+     * Prints the z-sort solution to stdout
      *
      * @throws Exception All exceptions are thrown for debugging as this is not intended for production
      */
@@ -134,6 +142,34 @@ public class Task3 {
             for (NodeSet n : _nodeSets.values()) {
                 _out.write(n.toString());
             }
+        }
+
+        if (_isDAG) {
+            _out.write("DAG\n");
+        } else {
+            _out.write("nonDAG\n");
+        }
+
+        ArrayList<NodeSet> nodeList = new ArrayList<>(_nodeSets.values());
+        nodeList.sort(new  NodeSet());
+        _out.write(nodeList.get(nodeList.size()-1)._strata+1 + "\n");
+        LinkedList<NodeSet> strata = new LinkedList<>();
+        int current = 0;
+        for (NodeSet nodeSet : nodeList) {
+            if (current == nodeSet._strata) {
+                strata.add(nodeSet);
+            } else {
+                _out.write(strata.size()+"\n");
+                for (NodeSet n : strata) {
+                    _out.write(n.names() + "\n");
+                }
+                strata.clear();
+                strata.add(nodeSet);
+            }
+        }
+        _out.write(strata.size()+"\n");
+        for (NodeSet n : strata) {
+            _out.write(n.names() + "\n");
         }
     }
 
@@ -149,65 +185,47 @@ public class Task3 {
      * No dependencies other than built in java libraries
      * </p>
      */
-    class NodeSet {
+    private class NodeSet implements Comparator<NodeSet> {
         private String _name;
+        private int _strata;
         private NodeSet _collapsedTo;
         private HashSet<NodeSet> _to; // List of nodes the node goes to
         private HashSet<NodeSet> _from; // List of nodes the node comes from
         private TreeSet<String> _container; // List of nodes collapsed into this one
 
+        public int compare(NodeSet ns1, NodeSet ns2) {
+            if (ns2._strata > ns1._strata) {
+                return -1;
+            } else if (ns2._strata < ns1._strata) {
+                return 1;
+            } else {
+                return ns1.names().compareTo(ns2.names());
+            }
+        }
+
         /**
-         * Creates a new node with a name and assumes the 0th strata to begin with
+         * Creates a new node with a name and assumes the 0th strata to begin with and no collapsing yet
          *
          * @param name   NodeSet's name
          */
         NodeSet(String name) {
             _name = name;
+            _strata = 0; // Start on lowest strata
+            _collapsedTo = null; // All NodeSets start of non-collapsed
             // Initialises the to, from and container lists
-            _collapsedTo = null;
             _to = new HashSet<>();
             _from = new HashSet<>();
             _container = new TreeSet<>();
         }
 
+        NodeSet() {
+        }
+
         /**
-         * Collapses a list of node sets into one
-         *
+         * A recursive function based on DFS that collapses NodeSets that are strongly connected one-by-one
+         * @param _seen NodeSets already visited
+         * @param _order The walk of NodeSets
          */
-        void collapse(NodeSet n) {
-            NodeSet base = collapseTo();
-            base._to.addAll(n._to);
-            base._from.addAll(n._from);
-            base._container.add(n._name);
-            base._container.addAll(n._container);
-            for (NodeSet newTo : n._to) {
-                newTo.cutFrom(n);
-                newTo.comesFrom(base);
-            }
-            for (NodeSet newFrom : n._from) {
-                newFrom.cutTo(n);
-                newFrom.goesTo(base);
-            }
-            n._to.clear();
-            n._from.clear();
-            n._container.clear();
-            base._to.remove(base);
-            base._from.remove(base);
-            base._to.remove(n);
-            base._from.remove(n);
-            base._container.remove(base._name);
-            _nodeSets.remove(n._name);
-            n._collapsedTo = base;
-        }
-
-        NodeSet collapseTo() {
-            if (_collapsedTo == null) {
-                return this;
-            } else {
-                return _collapsedTo.collapseTo();
-            }
-        }
-
         void collapseCycles(HashSet<String> _seen, ArrayList<NodeSet> _order) {
             if (_seen.contains(_name)) {
                 while(_order.get(_order.size()-1) != this) {
@@ -218,10 +236,85 @@ public class Task3 {
                 _seen.add(_name);
                 _order.add(this);
                 ArrayList<NodeSet> nextNodeSet = new ArrayList<>(_to);
-                for (int i = 0; i++ < _to.size();) {
+                for (int i = 0; i < nextNodeSet.size(); i++) {
                     nextNodeSet.get(i).collapseCycles((HashSet<String>) _seen.clone(), (ArrayList<NodeSet>) _order.clone());
                 }
             }
+        }
+
+        /**
+         * Collapses a list of node sets into one
+         */
+        void collapse(NodeSet n) {
+            // Cannot be a DAG now
+            _isDAG = false;
+            // Gets base to collapse to
+            NodeSet base = collapseTo();
+            // Adds lists together
+            base._to.addAll(n._to);
+            base._from.addAll(n._from);
+            base._container.add(n._name);
+            base._container.addAll(n._container);
+            // Cuts arcs from NodeSet
+            for (NodeSet newTo : n._to) {
+                newTo.cutFrom(n);
+                newTo.comesFrom(base);
+            }
+            // Cuts arcs to NodeSet
+            for (NodeSet newFrom : n._from) {
+                newFrom.cutTo(n);
+                newFrom.goesTo(base);
+            }
+            // Remove any traces of the old NodeSet
+            base._to.remove(n);
+            base._from.remove(n);
+            base._to.remove(base);
+            base._from.remove(base);
+            base._container.remove(base._name);
+            _nodeSets.remove(n._name);
+            n._to.clear();
+            n._from.clear();
+            n._container.clear();
+            n._collapsedTo = base;
+        }
+
+        /**
+         * Finds the base to collapse to
+         * @return collapse base
+         */
+        NodeSet collapseTo() {
+            if (_collapsedTo == null) {
+                return this;
+            } else {
+                return _collapsedTo.collapseTo();
+            }
+        }
+
+        void start() {
+            if (_from.size() == 0) {
+                for (NodeSet n : _to) {
+                    n.upStrata(0);
+                }
+            }
+        }
+
+        void upStrata(int strata) {
+            if (_strata < strata + 1) {
+                _strata = strata + 1;
+                for (NodeSet n : _to) {
+                    n.upStrata(_strata);
+                }
+            }
+        }
+
+        String names() {
+            StringBuilder names = new StringBuilder();
+            TreeSet<String> namesList= new TreeSet<>((TreeSet<String>)_container.clone());
+            namesList.add(_name);
+            for (String name : namesList) {
+                names.append(name + " ");
+            }
+            return names.toString();
         }
 
         /**
@@ -246,13 +339,17 @@ public class Task3 {
 
         /**
          * Informs the NodeSet that it is no longer pointing to a node
-         * @param to
+         * @param to The node to be cut
          */
         void cutTo(NodeSet to) {
             // Removes the node from the to list
             _to.remove(to);
         }
 
+        /**
+         * Informs the NodeSet that it is no longer pointed to from a node
+         * @param from The node to be cut
+         */
         void cutFrom(NodeSet from) {
             _from.remove(from);
         }

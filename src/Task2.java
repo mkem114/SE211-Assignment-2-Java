@@ -6,10 +6,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.LinkedList;
+import java.util.*;
 import java.lang.String;
 
 public class Task2 {
@@ -24,9 +21,9 @@ public class Task2 {
     // strata
     private LinkedList<LinkedList<Node>> _strata;
 
-    /*public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
         new Task2();
-    }*/
+    }
 
     private Task2() throws Exception {
         // Initialises the input and output streams respectively
@@ -163,22 +160,22 @@ public class Task2 {
 
         void start() {
             if (founder()) {
-                HashMap<String, Node> seen = new HashMap<>();
-                seen.put(_name, this);
+                HashSet<Node> seen = new HashSet<>();
+                seen.add(this);
                 for (Node n : _to) {
                     n.upStrata(0, seen);
                 }
             }
         }
 
-        void upStrata(int strata, HashMap<String, Node> seen) {
-            if (seen.containsKey(_name) || founder()) {
+        void upStrata(int strata, HashSet<Node> seen) {
+            if (seen.contains(this) || founder()) {
                 System.out.println("nonDAG");
                 System.exit(0);
             }
             if (_strata < strata + 1) {
                 _strata = strata + 1;
-                seen.put(_name, this);
+                seen.add(this);
                 for (Node n : _to) {
                     n.upStrata(_strata, seen);
                 }
