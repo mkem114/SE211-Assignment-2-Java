@@ -37,7 +37,7 @@ public class Task3 {
     // stdout
     private BufferedWriter _out;
     // nodes
-    private HashMap<String, NodeSet> _nodeSets;
+    private HashMap<Integer, NodeSet> _nodeSets;
     // is a dag
     private boolean _isDAG;
     // strata
@@ -99,8 +99,8 @@ public class Task3 {
         int numArcs = Integer.parseInt(_in.readLine()); // Determines how many arcs there are to read in
         for (int arc = 0; arc++ < numArcs; ) { // Reads every arc
             StringTokenizer line = new StringTokenizer(_in.readLine());
-            String fromNodeName = line.nextToken(); // from node
-            String toNodeName = line.nextToken(); // to node
+            int fromNodeName = Integer.parseInt(line.nextToken()); // from node
+            int toNodeName = Integer.parseInt(line.nextToken()); // to node
 
             NodeSet fromNode = _nodeSets.get(fromNodeName);
             NodeSet toNode = _nodeSets.get(toNodeName);
@@ -113,7 +113,7 @@ public class Task3 {
                 _nodeSets.put(toNodeName, toNode);
             }
 
-            if (!toNodeName.equals(fromNodeName)) { // Stops reflexive arcs
+            if (toNodeName != fromNodeName) { // Stops reflexive arcs
                 // Creates the arc between the two node
                 fromNode.goesTo(toNode);
                 toNode.comesFrom(fromNode);
@@ -157,17 +157,18 @@ public class Task3 {
 
         ArrayList<NodeSet> nodeList = new ArrayList<>(_nodeSets.values());
         nodeList.sort(new  NodeSet());
-
-        int _strataOn = 0;
+        int strataOn = 0;
         _strata.add(new ArrayList<>());
         for (NodeSet n : nodeList) {
-            if (n._strata > _strataOn) {
-                _strataOn = n._strata;
+            if (n._strata > strataOn) {
+                strataOn = n._strata;
                 _strata.add(new ArrayList<>());
             }
-            _strata.get(_strata.size()-1).add(n);
+            //TODO CHECK IF _strata.size()-1 CAN BE REPLACED WITH strataOn
+            _strata.get(strataOn).add(n);
         }
-        _out.write(_strata.size() + "\n");
+        //TODO CHECK IF _strata.size() CAN BE REPLACED WITH strataOn + 1
+        _out.write(strataOn+1 + "\n");
         for (ArrayList<NodeSet> list : _strata) {
             _out.write(list.size() + "\n");
             for (NodeSet n : list) {
@@ -190,12 +191,12 @@ public class Task3 {
      */
     private class NodeSet implements Comparator<NodeSet> {
         private String _names = null;
-        private String _name;
+        private int _name;
         private int _strata;
         private NodeSet _collapsedTo;
         private HashSet<NodeSet> _to; // List of nodes the node goes to
         private HashSet<NodeSet> _from; // List of nodes the node comes from
-        private TreeSet<String> _container; // List of nodes collapsed into this one
+        private TreeSet<Integer> _container; // List of nodes collapsed into this one
 
         public int compare(NodeSet ns1, NodeSet ns2) {
             if (ns2._strata > ns1._strata) {
@@ -214,7 +215,7 @@ public class Task3 {
          *
          * @param name   NodeSet's name
          */
-        NodeSet(String name) {
+        NodeSet(int name) {
             _name = name;
             _strata = 0; // Start on lowest strata
             _collapsedTo = null; // All NodeSets start of non-collapsed
@@ -232,7 +233,7 @@ public class Task3 {
          * @param _seen NodeSets already visited
          * @param _order The walk of NodeSets
          */
-        void collapseCycles(HashSet<String> _seen, ArrayList<NodeSet> _order) {
+        void collapseCycles(HashSet<Integer> _seen, ArrayList<NodeSet> _order) {
             if (_seen.contains(_name)) {
                 while(_order.get(_order.size()-1) != this) {
                     _order.get(_order.size()-2).collapse(_order.get(_order.size()-1));
@@ -243,7 +244,7 @@ public class Task3 {
                 _order.add(this);
                 ArrayList<NodeSet> nextNodeSet = new ArrayList<>(_to);
                 for (int i = 0; i < nextNodeSet.size(); i++) {
-                    nextNodeSet.get(i).collapseCycles((HashSet<String>) _seen.clone(), (ArrayList<NodeSet>) _order.clone());
+                    nextNodeSet.get(i).collapseCycles((HashSet<Integer>) _seen.clone(), (ArrayList<NodeSet>) _order.clone());
                 }
             }
         }
@@ -314,16 +315,10 @@ public class Task3 {
         String names() {
             if (_names == null) {
                 StringBuilder names = new StringBuilder();
-                ArrayList<String> namesListString= new ArrayList<>((TreeSet<String>)_container.clone());
+                ArrayList<Integer> namesListString= new ArrayList<>((TreeSet<Integer>)_container.clone());
                 namesListString.add(_name);
-                int[] namesList = new int[namesListString.size()];
-                for (int i = 0; i < namesListString.size(); i++) {
-                    namesList[i] = Integer.parseInt(namesListString.get(i));
-                }
-                Arrays.sort(namesList);
-
-
-                for (Integer name : namesList) {
+                namesListString.sort(new IntComp());
+                for (Integer name : namesListString) {
                     names.append(name + " ");
                 }
                 _names = names.toString();
@@ -395,7 +390,7 @@ public class Task3 {
                     _str.append(n._name + "\n");
                 }
                 _str.append("collapsed into this: \n");
-                for (String i : _container) {
+                for (Integer i : _container) {
                     _str.append(i + "\n");
                 }
                 _str.append("is collapsed: " +  "\n");
@@ -403,6 +398,12 @@ public class Task3 {
 
             // Returns the print
             return _str.toString();
+        }
+    }
+
+    class IntComp implements Comparator<Integer> {
+        public int compare(Integer i1, Integer i2) {
+            return Integer.compare(i1, i2);
         }
     }
 }
