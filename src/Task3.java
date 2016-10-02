@@ -31,7 +31,7 @@ public class Task3 {
     /**
      * Debug-mode printing switch with "true" being on
      */
-    public static final boolean _debug = false;
+    public static final boolean _debug = true;
     // stdin
     private BufferedReader _in;
     // stdout
@@ -151,6 +151,7 @@ public class Task3 {
      */
     class NodeSet {
         private String _name;
+        private NodeSet _collapsedTo;
         private HashSet<NodeSet> _to; // List of nodes the node goes to
         private HashSet<NodeSet> _from; // List of nodes the node comes from
         private TreeSet<String> _container; // List of nodes collapsed into this one
@@ -163,6 +164,7 @@ public class Task3 {
         NodeSet(String name) {
             _name = name;
             // Initialises the to, from and container lists
+            _collapsedTo = null;
             _to = new HashSet<>();
             _from = new HashSet<>();
             _container = new TreeSet<>();
@@ -173,31 +175,48 @@ public class Task3 {
          *
          */
         void collapse(NodeSet n) {
-            _to.addAll(n._to);
-            _from.addAll(n._from);
-            _container.add(n._name);
-            _container.addAll(n._container);
+            NodeSet base = collapseTo();
+            base._to.addAll(n._to);
+            base._from.addAll(n._from);
+            base._container.add(n._name);
+            base._container.addAll(n._container);
             for (NodeSet newTo : n._to) {
                 newTo.cutFrom(n);
-                newTo.comesFrom(this);
+                newTo.comesFrom(base);
             }
             for (NodeSet newFrom : n._from) {
                 newFrom.cutTo(n);
-                newFrom.goesTo(this);
+                newFrom.goesTo(base);
             }
-            _nodeSets.remove(n._name);
             n._to.clear();
             n._from.clear();
             n._container.clear();
-            _to.remove(this);
-            _from.remove(this);
-            _container.remove(this._name);
+            base._to.remove(base);
+            base._from.remove(base);
+            base._to.remove(n);
+            base._from.remove(n);
+            base._container.remove(base._name);
+            _nodeSets.remove(n._name);
+            n._collapsedTo = base;
+        }
+
+        NodeSet collapseTo() {
+            if (_collapsedTo == null) {
+                return this;
+            } else {
+                return _collapsedTo.collapseTo();
+            }
         }
 
         void collapseCycles(HashSet<String> _seen, ArrayList<NodeSet> _order) {
             if (_seen.contains(_name)) {
-
+                while(_order.get(_order.size()-1) != this) {
+                    _order.get(_order.size()-2).collapse(_order.get(_order.size()-1));
+                    _order.remove(_order.size()-1);
+                }
             } else {
+                _seen.add(_name);
+                _order.add(this);
                 ArrayList<NodeSet> nextNodeSet = new ArrayList<>(_to);
                 for (int i = 0; i++ < _to.size();) {
                     nextNodeSet.get(i).collapseCycles((HashSet<String>) _seen.clone(), (ArrayList<NodeSet>) _order.clone());
@@ -251,7 +270,7 @@ public class Task3 {
             // String compiler
             StringBuilder _str = new StringBuilder();
             // Insert the name and strata of the node
-            _str.append("\n" + _name + " is on: " + strataOn() + " and referenced by: " + hashCode() + "\n");
+            _str.append("\n" + _name + " is on: " + " and referenced by: " + hashCode() + "\n");
 
             // Prints the arcs
             if (printArcs) {
@@ -264,10 +283,10 @@ public class Task3 {
                     _str.append(n._name + "\n");
                 }
                 _str.append("collapsed into this: \n");
-                for (Integer i : _container) {
+                for (String i : _container) {
                     _str.append(i + "\n");
                 }
-                _str.append("is collapsed: " + _collapsed + "\n");
+                _str.append("is collapsed: " +  "\n");
             }
 
             // Returns the print
