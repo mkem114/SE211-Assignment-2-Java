@@ -17,9 +17,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedList;
+import java.util.*;
 
 /**
  * <h1>Task3</h1>
@@ -33,13 +31,21 @@ public class Task3 {
     /**
      * Debug-mode printing switch with "true" being on
      */
-    public static final boolean _debug = false;
+    public static final boolean _debug = true;
     // stdin
     private BufferedReader _in;
     // stdout
     private BufferedWriter _out;
     // nodes
     private HashMap<Integer, NodeSet> _nodeSets;
+    // is a dag
+    private boolean _isDAG;
+
+    public static void debug(String string) {
+        if (_debug) {
+            System.out.println(string);
+        }
+    }
 
     /**
      * Starts the program after being called from command line
@@ -62,6 +68,8 @@ public class Task3 {
         _in = new BufferedReader(new InputStreamReader(System.in));
         _out = new BufferedWriter(new OutputStreamWriter(System.out));
         // Initialises the data structure
+        _nodeSets = new HashMap<>();
+        _isDAG = true;
 
         // Loads the graph
         load();
@@ -86,21 +94,22 @@ public class Task3 {
         for (int arc = 0; arc++ < numArcs; ) { // Reads every arc
             String rawArc = _in.readLine();
             String[] splitArc = rawArc.split(" ");
+
             int fromNodeName = Integer.parseInt(splitArc[0]); // from node
             int toNodeName = Integer.parseInt(splitArc[1]); // to node
 
-            if (toNodeName != fromNodeName) { // Stops reflexive arcs
-                NodeSet fromNode = _nodeSets.get(fromNodeName);
-                NodeSet toNode = _nodeSets.get(toNodeName);
-                if (fromNode == null) { // if from node doesn't exist yet then creates it
-                    fromNode = new NodeSet(fromNodeName);
-                    _nodeSets.put(fromNodeName, fromNode);
-                }
-                if (toNode == null) { // if to node doesn't exist yet then creates it
-                    toNode = new NodeSet(toNodeName);
-                    _nodeSets.put(toNodeName, toNode);
-                }
+            NodeSet fromNode = _nodeSets.get(fromNodeName);
+            NodeSet toNode = _nodeSets.get(toNodeName);
+            if (fromNode == null) { // if from node doesn't exist yet then creates it
+                fromNode = new NodeSet(fromNodeName);
+                _nodeSets.put(fromNodeName, fromNode);
+            }
+            if (toNode == null) { // if to node doesn't exist yet then creates it
+                toNode = new NodeSet(toNodeName);
+                _nodeSets.put(toNodeName, toNode);
+            }
 
+            if (toNodeName != fromNodeName) { // Stops reflexive arcs
                 // Creates the arc between the two node
                 fromNode.goesTo(toNode);
                 toNode.comesFrom(fromNode);
@@ -112,6 +121,15 @@ public class Task3 {
      * Solves the loaded graph
      */
     private void solve() {
+        for (NodeSet n : _nodeSets.values()) {
+            n.collapseCycles(new HashMap<>(), new ArrayList<>());
+        }
+
+        for (NodeSet n : _nodeSets.values()) {
+            if (n.notCollapsed()) {
+                n.solve();
+            }
+        }
     }
 
     /**
@@ -120,6 +138,11 @@ public class Task3 {
      * @throws Exception All exceptions are thrown for debugging as this is not intended for production
      */
     private void print() throws Exception {
+        if (_debug) {
+            for (NodeSet n : _nodeSets.values()) {
+                _out.write(n.toString());
+            }
+        }
     }
 
     /**
@@ -157,39 +180,88 @@ public class Task3 {
      * No dependencies other than built in java libraries
      * </p>
      */
-    public class NodeSet implements Comparable<NodeSet> {
+    class NodeSet implements Comparable<NodeSet> {
         private int _name;
         private int _strata;
-        private LinkedList<NodeSet> _to; // List of nodes the node goes to
-        private LinkedList<NodeSet> _from; // List of nodes the node comes from
-        private LinkedList<Integer> _collapsed; // List of nodes collapsed into this one
+        private boolean _collapsed;
+        private ArrayList<NodeSet> _to; // List of nodes the node goes to
+        private ArrayList<NodeSet> _from; // List of nodes the node comes from
+        private ArrayList<Integer> _container; // List of nodes collapsed into this one
 
         /**
          * Creates a new node with a name and assumes the 0th strata to begin with
          *
          * @param name   NodeSet's name
-         * @param strata NodeSet's strata
          */
-        public NodeSet(int name) {
+        NodeSet(int name) {
             _name = name;
             _strata = 0;
-            // Initialises the to and collapsed lists
-            _to = new LinkedList<>();
-            _collapsed = new LinkedList<>();
+            _collapsed = false;
+            // Initialises the to, from and collapsed lists
+            _to = new ArrayList<>();
+            _from = new ArrayList<>();
+            _container = new ArrayList<>();
         }
 
         /**
          * Collapses a list of node sets into one
          *
          */
-        public void collapse(NodeSet n) {
+        void collapse(NodeSet n) {
             if (n != this) {
                 for (NodeSet nextTo : n._to) {
                     if (nextTo != this) {
                         _to.add(nextTo);
                     }
                 }
+
+                for (NodeSet nextFrom : n._from) {
+                    nextFrom.cutTo(n);
+                }
+
+                _container.add(n._name);
+                _container.addAll(n._container);
+
+                n._collapsed = true;
+                _isDAG = false;
             }
+        }
+
+        void collapseCycles(HashMap<Integer, Void> _seen, ArrayList<NodeSet> _order) {
+            if (notCollapsed()) {
+                if (_seen.containsKey(this._name)) {
+                    boolean start = false;
+                    for (NodeSet n : _order) {
+                        if (n == this) {
+                            start = true;
+                        } else if (start) {
+                            collapse(n);
+                        }
+                    }
+                } else {
+                    _seen.put(this._name, null);
+                    _order.add(this);
+                    for (int i = 0; i < _to.size(); i++) {
+                        NodeSet nextSet = _to.get(i);
+                        nextSet.collapseCycles(_seen, _order);
+                    }
+                }
+            }
+        }
+
+        /**
+         *
+         */
+        void solve() {
+
+        }
+
+        /**
+         *
+         * @return
+         */
+        boolean notCollapsed() {
+            return !_collapsed;
         }
 
         /**
@@ -197,7 +269,7 @@ public class Task3 {
          *
          * @param to Pointed node
          */
-        public void goesTo(NodeSet to) {
+        void goesTo(NodeSet to) {
             // Adds the node to the to list
             _to.add(to);
         }
@@ -207,7 +279,7 @@ public class Task3 {
          *
          * @param from Pointed node
          */
-        public void comesFrom(NodeSet from) {
+        void comesFrom(NodeSet from) {
             // Adds the node to the to list
             _from.add(from);
         }
@@ -216,7 +288,7 @@ public class Task3 {
          * Informs the NodeSet that it is no longer pointing to a node
          * @param to
          */
-        public void cutTo(NodeSet to) {
+        void cutTo(NodeSet to) {
             // Removes the node from the to list
             _to.remove(to);
         }
@@ -226,7 +298,7 @@ public class Task3 {
          *
          * @return Nth strata
          */
-        public int strataOn() {
+        int strataOn() {
             return _strata;
         }
 
@@ -234,7 +306,7 @@ public class Task3 {
          * Produces a string to uniquely identify a node and its properties.
          * With debug settings on the arcs to and fro are also printed.
          *
-         * @returns String of identifying info
+         * @return String of identifying info
          */
         @Override
         public String toString() {
@@ -249,12 +321,17 @@ public class Task3 {
             if (printArcs) {
                 _str.append("comes from nodes: \n");
                 for (NodeSet n : _from) {
-                    _str.append(n.name() + "\n");
+                    _str.append(n._name + "\n");
                 }
-                _str.append("\ngoes to nodes: \n");
+                _str.append("goes to nodes: \n");
                 for (NodeSet n : _to) {
-                    _str.append(n.name() + "\n");
+                    _str.append(n._name + "\n");
                 }
+                _str.append("collapsed into this: \n");
+                for (Integer i : _container) {
+                    _str.append(i + "\n");
+                }
+                _str.append("is collapsed: " + _collapsed + "\n");
             }
 
             // Returns the print
@@ -278,7 +355,7 @@ public class Task3 {
                 return 1;
             } else {
                 // Checks the name secondly
-                return Integer.compare(_name, n.name());
+                return Integer.compare(_name, n._name);
             }
         }
     }
