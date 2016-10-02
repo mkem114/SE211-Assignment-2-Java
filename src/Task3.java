@@ -11,7 +11,7 @@
 //Hour glass
 //Turn off debugging before submission
 // Have to collapse to the right such that we don't get weird effects
-
+//Fix collapsing chain
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -31,7 +31,7 @@ public class Task3 {
     /**
      * Debug-mode printing switch with "true" being on
      */
-    public static final boolean _debug = true;
+    public static final boolean _debug = false;
     // stdin
     private BufferedReader _in;
     // stdout
@@ -40,6 +40,8 @@ public class Task3 {
     private HashMap<Integer, NodeSet> _nodeSets;
     // is a dag
     private boolean _isDAG;
+    // strata
+    private LinkedList<LinkedList<NodeSet>> _strata;
 
     public static void debug(String string) {
         if (_debug) {
@@ -70,6 +72,7 @@ public class Task3 {
         // Initialises the data structure
         _nodeSets = new HashMap<>();
         _isDAG = true;
+        _strata = new LinkedList<>();
 
         // Loads the graph
         load();
@@ -143,6 +146,32 @@ public class Task3 {
                 _out.write(n.toString());
             }
         }
+
+        if (_isDAG) {
+            _out.write("DAG\n");
+        } else {
+            _out.write("nonDAG\n");
+        }
+
+        LinkedList<NodeSet> temp = new LinkedList<>(_nodeSets.values());
+        temp.sort(new NodeComparer());
+
+        int _strataOn = 0;
+        _strata.add(new LinkedList<>());
+        for (NodeSet n : temp) {
+            if (n.strataOn() > _strataOn) {
+                _strataOn = n.strataOn();
+                _strata.add(new LinkedList<>());
+            }
+            _strata.get(_strata.size()-1).add(n);
+        }
+
+        for (LinkedList<NodeSet> list : _strata) {
+            _out.write(list.size() + "\n");
+            for (NodeSet n : list) {
+                _out.write(n.printNames() + "\n");
+            }
+        }
     }
 
     /**
@@ -168,6 +197,12 @@ public class Task3 {
         }
     }
 
+    private class IntegerComparator implements Comparator<Integer> {
+        public int compare(Integer i1, Integer i2) {
+            return i1.compareTo(i2);
+        }
+    }
+
     /**
      * <h1>NodeSet</h1>
      * <p>
@@ -183,8 +218,8 @@ public class Task3 {
     class NodeSet implements Comparable<NodeSet> {
         private int _name;
         private int _strata;
-        private boolean _collapsed;
-        private ArrayList<NodeSet> _to; // List of nodes the node goes to
+        private NodeSet _collapsed;
+        private HashSet<NodeSet> _to; // List of nodes the node goes to
         private ArrayList<NodeSet> _from; // List of nodes the node comes from
         private ArrayList<Integer> _container; // List of nodes collapsed into this one
 
@@ -196,9 +231,9 @@ public class Task3 {
         NodeSet(int name) {
             _name = name;
             _strata = 0;
-            _collapsed = false;
+            _collapsed = null;
             // Initialises the to, from and collapsed lists
-            _to = new ArrayList<>();
+            _to = new HashSet<>();
             _from = new ArrayList<>();
             _container = new ArrayList<>();
         }
@@ -222,9 +257,20 @@ public class Task3 {
                 _container.add(n._name);
                 _container.addAll(n._container);
 
-                n._collapsed = true;
+                n._collapsed = this;
                 _isDAG = false;
             }
+        }
+
+        String printNames() {
+            StringBuilder sb = new StringBuilder();
+            _container.add(_name);
+            ArrayList<Integer> temp = new ArrayList<>(new HashSet<>((ArrayList<Integer>)_container.clone()));
+            temp.sort(new IntegerComparator());
+            for (Integer component : temp) {
+                sb.append(component+" ");
+            }
+            return sb.toString();
         }
 
         void collapseCycles(HashMap<Integer, Void> _seen, ArrayList<NodeSet> _order) {
@@ -241,11 +287,14 @@ public class Task3 {
                 } else {
                     _seen.put(this._name, null);
                     _order.add(this);
-                    for (int i = 0; i < _to.size(); i++) {
-                        NodeSet nextSet = _to.get(i);
-                        nextSet.collapseCycles(_seen, _order);
+                    ArrayList<NodeSet> to = new ArrayList<>(_to);
+                    for (int i = 0; i < to.size(); i++) {
+                        NodeSet nextSet = to.get(i);
+                        nextSet.collapseCycles((HashMap<Integer, Void>)_seen.clone(), (ArrayList<NodeSet>)_order.clone());
                     }
                 }
+            } else {
+
             }
         }
 
@@ -253,7 +302,19 @@ public class Task3 {
          *
          */
         void solve() {
+            for (NodeSet n : _to) {
+                n.upStrata(_strata);
+            }
+        }
 
+        void upStrata(int strata) {
+            if (_strata < ++strata) {
+                _strata = strata;
+                HashSet<NodeSet> to = new HashSet<>(_to);
+                for (NodeSet n : to) {
+                    n.upStrata(_strata);
+                }
+            }
         }
 
         /**
@@ -261,7 +322,7 @@ public class Task3 {
          * @return
          */
         boolean notCollapsed() {
-            return !_collapsed;
+            return _collapsed == null;
         }
 
         /**
@@ -355,7 +416,7 @@ public class Task3 {
                 return 1;
             } else {
                 // Checks the name secondly
-                return Integer.compare(_name, n._name);
+                return printNames().compareTo(n.printNames());
             }
         }
     }
